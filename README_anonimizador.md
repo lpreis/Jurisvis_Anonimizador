@@ -27,15 +27,15 @@ python -m pip install -U pip
 pip install -r requirements.txt
 ```
 
-### Modelo spaCy opcional
+### Modelo spaCy
 
-Para melhor deteccao de entidades, instala o modelo portugues:
+O `requirements.txt` inclui `pt_core_news_sm`, para que o Presidio tambem fique ativo no Streamlit Cloud. Localmente podes instalar um modelo maior para melhorar a deteccao:
 
 ```powershell
 python -m spacy download pt_core_news_lg
 ```
 
-A app funciona sem esse modelo, usando regex e validadores locais.
+A app procura os modelos por esta ordem: `pt_core_news_lg`, `pt_core_news_md`, `pt_core_news_sm`. Se nenhum existir, funciona apenas com regex e validadores locais, mas deteta menos entidades.
 
 ## Executar
 

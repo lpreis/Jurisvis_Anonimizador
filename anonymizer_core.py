@@ -121,6 +121,7 @@ class ReversibleAnonymizer:
         self.counters: dict[str, int] = {}
         self.last_report = DetectionReport(matches=[], rejected=[])
         self.warning_callback = warning_callback
+        self.presidio_model_name: str | None = None
         self.presidio_analyzer = self._build_presidio_analyzer()
 
     def anonymize(self, text: str, language: str = "pt") -> tuple[str, list[EntityMatch]]:
@@ -311,19 +312,28 @@ class ReversibleAnonymizer:
             from presidio_analyzer.nlp_engine import NlpEngineProvider
             import spacy
 
-            if not spacy.util.is_package("pt_core_news_lg"):
+            model_name = next(
+                (
+                    candidate
+                    for candidate in ("pt_core_news_lg", "pt_core_news_md", "pt_core_news_sm")
+                    if spacy.util.is_package(candidate)
+                ),
+                None,
+            )
+            if model_name is None:
                 return None
 
             provider = NlpEngineProvider(
                 nlp_configuration={
                     "nlp_engine_name": "spacy",
-                    "models": [{"lang_code": "pt", "model_name": "pt_core_news_lg"}],
+                    "models": [{"lang_code": "pt", "model_name": model_name}],
                 }
             )
             analyzer = AnalyzerEngine(
                 nlp_engine=provider.create_engine(),
                 supported_languages=["pt"],
             )
+            self.presidio_model_name = model_name
             for entity, pattern, score, _validator in REGEX_PATTERNS:
                 analyzer.registry.add_recognizer(
                     PatternRecognizer(

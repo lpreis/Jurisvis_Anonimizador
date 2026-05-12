@@ -177,7 +177,8 @@ def main() -> None:
 
     if show_debug:
         analyzer = st.session_state.anonymizer.presidio_analyzer
-        st.info(f"Presidio ativo: {analyzer is not None}")
+        model_name = st.session_state.anonymizer.presidio_model_name or "sem modelo spaCy"
+        st.info(f"Presidio ativo: {analyzer is not None} | Modelo NLP: {model_name}")
 
     upload_col, text_col = st.columns([0.9, 1.1], gap="large")
     with upload_col:
