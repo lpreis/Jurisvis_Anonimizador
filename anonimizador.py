@@ -4,6 +4,7 @@ import os
 import re
 import unicodedata
 from dataclasses import dataclass
+from datetime import datetime
 from io import BytesIO
 import streamlit as st
 
@@ -570,6 +571,14 @@ def initialize_state() -> None:
         st.session_state.matches = []
 
 
+def get_last_modified_time() -> str:
+    try:
+        timestamp = os.path.getmtime(__file__)
+        return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+    except OSError:
+        return "desconhecida"
+
+
 def entity_table(matches: list[EntityMatch]) -> list[dict[str, object]]:
     return [
         {
@@ -617,6 +626,7 @@ def main() -> None:
     st.write(f"Presidio analyzer available: {st.session_state.anonymizer.presidio_analyzer is not None}")
 
     st.title("Anonimizador reversível para LLM")
+    st.caption(f"Última alteração do código: {get_last_modified_time()}")
 
     upload_col, text_col = st.columns([0.9, 1.1], gap="large")
     with upload_col:
