@@ -283,7 +283,7 @@ class ReversibleAnonymizer:
                 ),
                 (
                     "NIPC",
-                    r"\bN\.?\s*I\.?\s*P\.?\s*C\.?\s*\d{3}\s?\d{3}\s?\d{3}\b",
+                    r"(?:\b(?:(?:N\.?\s*I\.?\s*P\.?\s*C\.?)|(?:pessoa\s+coletiva)|(?:n\.?\s*I\.?\s*P\.?\s*C\.?))\s+)?n\.?\s*º\s*\d{3}\s?\d{3}\s?\d{3}\b",
                     0.97,
                     ["nipc", "pessoa coletiva", "pessoa colectiva", "contribuinte", "empresa"],
                 ),
@@ -348,7 +348,7 @@ class ReversibleAnonymizer:
             ),
             ("FATURA", r"\b(?:FT|FS|FR|FTR|FAC|NC|ND)\s*\d{4}/\d{1,10}\b", 0.94),
             ("LOCALIZACAO", ADDRESS_RE.pattern, 0.99),
-            ("NIPC", r"\bN\.?\s*I\.?\s*P\.?\s*C\.?\s*\d{3}\s?\d{3}\s?\d{3}\b", 0.97),
+            ("NIPC", r"(?:\b(?:(?:N\.?\s*I\.?\s*P\.?\s*C\.?)|(?:pessoa\s+coletiva)|(?:n\.?\s*I\.?\s*P\.?\s*C\.?))\s+)?n\.?\s*º\s*\d{3}\s?\d{3}\s?\d{3}\b", 0.97),
             (
                 "ORGANIZACAO",
                 COMPANY_SUFFIX_RE.pattern,
