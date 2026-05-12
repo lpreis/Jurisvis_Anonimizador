@@ -56,11 +56,12 @@ COMPANY_SUFFIX_RE = re.compile(
 )
 ADDRESS_RE = re.compile(
     r"\b(?:Rua|R\.|Avenida|Av\.|Travessa|Tv\.|Praça|Praca|Praceta|Largo|Estrada|Alameda|Beco|Calçada|Calcada|Rotunda|Urbanização|Urbanizacao|Quinta|Lugar|Caminho)\s+"
-    r"[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9][^,\n]{1,80},?\s+"
+    r"[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9][^,\n]*?,?\s+"
     r"(?:n\.?\s*[ºo]\s*)?\d+[A-Za-z]?"
     r"(?:\s*[-/]\s*\d+[A-Za-z]?)?"
     r"(?:\s*,?\s*(?:(?:\d{1,2}\s*\.?\s*(?:º|o|andar))|(?:esq\.?|dto\.?|frente|tr[aá]s)|(?:[A-Z]?\d{1,2}[A-Z])|(?:ap\.?|apt\.?|apartamento|fra[cç][aã]o)\s*[A-Z0-9-]+)){0,3}"
-    r"\s*,?\s*\d{4}-\d{3}\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ.'’-]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ.'’-]+){0,3}\b",
+    r"(?:\s*,?\s*\d{4}-\d{3}\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ.''-]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ.''-]+){0,3})?"
+    r"(?:\s*,?\s*[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ.''-]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][A-Za-zÀ-ÿ.''-]+){0,2})?",
     flags=re.IGNORECASE,
 )
 
@@ -294,7 +295,7 @@ class ReversibleAnonymizer:
                 ),
                 (
                     "TELEFONE",
-                    r"\b(?:\+351\s?)?(?:9[1236]\d{7}|2\d{8})\b",
+                    r"\b(?:\+351\s?)?(?:9[1-3]\d\s?\d{3}\s?\d{3}|2\d\s?\d{3}\s?\d{3})\b",
                     0.95,
                     ["telefone", "telemovel", "telemóvel", "contacto"],
                 ),
@@ -353,8 +354,8 @@ class ReversibleAnonymizer:
                 COMPANY_SUFFIX_RE.pattern,
                 0.98,
             ),
-            ("TELEFONE", r"\b(?:\+351\s?)?(?:9[1236]\d{7}|2\d{8})\b", 0.95),
-            ("NIF", r"\b(?:N\.?\s*I\.?\s*F\.?\s*)?[123568]\d{2}\s?\d{3}\s?\d{3}\b", 0.72),
+            ("TELEFONE", r"\b(?:\+351\s?)?(?:9[1-3]\d\s?\d{3}\s?\d{3}|2\d\s?\d{3}\s?\d{3})\b", 0.95),
+            ("NIF", r"\b(?:N\.?\s*I\.?\s*F\.?\s*)[123568]\d{2}\s?\d{3}\s?\d{3}\b", 0.85),
             ("IBAN", r"\bPT50\s?(?:\d{4}\s?){5}\d{1}\b", 0.9),
             (
                 "PROCESSO",
@@ -368,7 +369,7 @@ class ReversibleAnonymizer:
             ),
             ("CODIGO_POSTAL", r"\b\d{4}-\d{3}\b", 0.75),
             ("CARTAO_CREDITO", r"\b(?:\d[ -]*?){13,16}\b", 0.65),
-            ("PESSOA", r"\b(?:Dr\.?\s*|Dra\.?\s*|Eng\.?\s*|Prof\.?\s*|Advog\.?\s*|Avog\.?\s*)[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+)+\b", 0.95),
+            ("PESSOA", r"\b(?:Dr\.?|Dra\.?|Eng\.?[ªº]?|Prof\.?[ªº]?|Advog\.?|Avog\.?)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+)+\b", 0.95),
         ]
 
         # Blacklist of words that should not be matched as PESSOA
