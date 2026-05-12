@@ -238,6 +238,10 @@ class ReversibleAnonymizer:
         try:
             from presidio_analyzer import AnalyzerEngine, Pattern, PatternRecognizer
             from presidio_analyzer.nlp_engine import NlpEngineProvider
+            import spacy
+
+            if not spacy.util.is_package('pt_core_news_lg'):
+                return None
 
             configuration = {
                 "nlp_engine_name": "spacy",

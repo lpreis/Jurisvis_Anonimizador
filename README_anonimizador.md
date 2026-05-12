@@ -16,8 +16,17 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 pip install -r requirements.txt
+```
+
+### Modelo spaCy (opcional)
+
+Para melhor deteção de entidades, instala o modelo de linguagem português:
+
+```powershell
 python -m spacy download pt_core_news_lg
 ```
+
+**Nota para deploy no Streamlit Share:** O modelo é grande (~568MB) e pode falhar na instalação. A app funciona sem ele, usando deteção baseada em regex.
 
 ## Executar
 
