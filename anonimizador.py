@@ -7,6 +7,7 @@ import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
+from difflib import SequenceMatcher
 import streamlit as st
 
 
@@ -467,7 +468,6 @@ class ReversibleAnonymizer:
 
         return refined
 
-    @staticmethod
     def _remove_overlaps(matches: list[EntityMatch]) -> list[EntityMatch]:
         ordered = sorted(matches, key=lambda item: (-item.score, -(item.end - item.start), item.start))
         selected: list[EntityMatch] = []
@@ -478,6 +478,75 @@ class ReversibleAnonymizer:
                 selected.append(match)
 
         return sorted(selected, key=lambda item: item.start)
+
+    def get_entity_suggestions(self, text: str) -> list[tuple[str, float]]:
+        """Analyze text and return suggested entity types with confidence scores."""
+        if not text.strip():
+            return []
+        
+        suggestions: dict[str, float] = {}
+        
+        # Test against all patterns to get scores
+        patterns: list[tuple[str, str, float]] = [
+            ("EMAIL", r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", 0.95),
+            ("TELEFONE", r"\b(?:\+351\s?)?(?:9[1-3]\d\s?\d{3}\s?\d{3}|2\d\s?\d{3}\s?\d{3})\b", 0.95),
+            ("NIF", r"\b(?:N\.?\s*I\.?\s*F\.?\s*)?[123568]\d{2}\s?\d{3}\s?\d{3}\b", 0.85),
+            ("NIPC", r"(?:(?:N\.?\s*I\.?\s*P\.?\s*C\.?)|(?:pessoa\s+coletiva)|(?:n\.?\s*I\.?\s*P\.?\s*C\.?))\s+n\.?\s*º\s*\d{3}\s?\d{3}\s?\d{3}\b", 0.97),
+            ("IBAN", r"\bPT50\s?(?:\d{4}\s?){5}\d{1}\b", 0.9),
+            ("CARTAO_CREDITO", r"\b(?:\d[ -]*?){13,16}\b", 0.65),
+            ("CODIGO_POSTAL", r"\b\d{4}-\d{3}\b", 0.75),
+            ("PROCESSO", r"\b(?:Processo\s+n\.?[ºo]\s*)?\d{1,7}/\d{2}\.[A-Z0-9]{1,6}(?:-[A-Z0-9]{1,6})?\b", 0.9),
+            ("CEDULA_PROFISSIONAL", r"\bC[eé]dula\s+profissional\s+n\.?[ºo]\s*\d{1,7}[A-Z]?\b", 0.9),
+            ("CARTAO_CIDADAO", r"\b(?:Cart[aã]o\s+de\s+Cidad[aã]o|CC)\s+n\.?\s*[ºo]\s*\d{8}\s*\d\s*[A-Z0-9]{3}\b", 0.96),
+            ("CONTRATO", r"\b(?:Contrato\s+)?[A-Z0-9]{2,}(?:-[A-Z0-9]{2,})+-\d{4}/\d{1,10}\b", 0.93),
+            ("PESSOA", r"\b(?:Dr\.?|Dra\.?|Eng\.?[ªº]?|Prof\.?[ªº]?|Advog\.?|Avog\.?)\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+)+\b", 0.95),
+            ("ORGANIZACAO", COMPANY_SUFFIX_RE.pattern, 0.98),
+            ("FATURA", r"\b(?:FT|FS|FR|FTR|FAC|NC|ND)\s*\d{4}/\d{1,10}\b", 0.94),
+            ("LOCALIZACAO", ADDRESS_RE.pattern, 0.99),
+        ]
+        
+        for entity_type, pattern, score in patterns:
+            flags = 0 if entity_type in {"ORGANIZACAO", "PESSOA"} else re.IGNORECASE
+            if re.search(pattern, text, flags=flags):
+                suggestions[entity_type] = score
+        
+        # Return sorted by score descending
+        return sorted(suggestions.items(), key=lambda x: x[1], reverse=True)
+
+    def find_similar_in_vault(self, text: str, entity_type: str = None) -> list[tuple[str, str, float]]:
+        """Find similar values in vault and return (token, original_value, similarity_score)."""
+        if not text.strip():
+            return []
+        
+        similar = []
+        text_lower = text.lower().strip()
+        
+        for token, value in self.vault.items():
+            # Extract entity type from token
+            token_match = TOKEN_PARTS_RE.match(token)
+            if token_match:
+                token_type = token_match.group(1)
+            else:
+                token_type = None
+            
+            # Filter by entity type if specified
+            if entity_type and token_type and token_type.upper() != entity_type.upper():
+                continue
+            
+            # Calculate similarity
+            value_lower = value.lower().strip()
+            similarity = SequenceMatcher(None, text_lower, value_lower).ratio()
+            
+            # Only return if similarity is > 0.6 (60%)
+            if similarity > 0.6:
+                similar.append((token, value, similarity))
+        
+        # Return sorted by similarity descending
+        return sorted(similar, key=lambda x: x[2], reverse=True)
+
+    def add_manual_entity(self, text: str, entity_type: str) -> str:
+        """Manually add an entity to the vault and return the token."""
+        return self._token_for(entity_type, text)
 
 
 def extract_text(uploaded_file) -> str:
@@ -586,6 +655,8 @@ def initialize_state() -> None:
         st.session_state.deanonymized_response = ""
     if "matches" not in st.session_state:
         st.session_state.matches = []
+    if "manual_selection_result" not in st.session_state:
+        st.session_state.manual_selection_result = ""
 
 
 def get_last_modified_time() -> str:
@@ -621,7 +692,89 @@ def entity_table(matches: list[EntityMatch]) -> list[dict[str, object]]:
     ]
 
 
-def render_sidebar() -> tuple[str, str, str, str]:
+def render_manual_anonymization() -> None:
+    """Render UI for manual entity selection and anonymization."""
+    st.subheader("Anonimização Manual")
+    st.caption("Seleciona texto para anonimizar com sugestões inteligentes")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        text_to_anonymize = st.text_input(
+            "Cola aqui o texto que queres anonimizar",
+            placeholder="Ex.: Dr. João Silva, empresa ABC Lda, 213 884 992"
+        )
+    
+    if not text_to_anonymize:
+        return
+    
+    with col2:
+        st.empty()  # Placeholder for spacing
+    
+    # Find similar in vault
+    similar_in_vault = st.session_state.anonymizer.find_similar_in_vault(text_to_anonymize)
+    
+    if similar_in_vault:
+        st.success("✅ Encontrei correspondências no vault!")
+        suggestions_display = []
+        for token, value, score in similar_in_vault:
+            suggestions_display.append({
+                "Token": token,
+                "Valor original": value,
+                "Similaridade": f"{score*100:.0f}%"
+            })
+        
+        selected_idx = st.selectbox(
+            "Usar token existente:",
+            range(len(similar_in_vault)),
+            format_func=lambda i: f"{similar_in_vault[i][0]} ({similar_in_vault[i][2]*100:.0f}% match)"
+        )
+        
+        selected_token = similar_in_vault[selected_idx][0]
+        if st.button("✓ Usar este token", type="primary"):
+            st.session_state.manual_selection_result = selected_token
+            st.success(f"Selecionado: {selected_token}")
+    
+    else:
+        st.info("Sem correspondências no vault. Analisando tipo de entidade...")
+        
+        # Get entity suggestions
+        suggestions = st.session_state.anonymizer.get_entity_suggestions(text_to_anonymize)
+        
+        if suggestions:
+            st.write("**Possíveis tipos de entidade:**")
+            
+            # Create radio buttons for entity type
+            suggestion_options = [f"{entity_type} ({score*100:.0f}% confiança)" 
+                                 for entity_type, score in suggestions]
+            selected_idx = st.radio(
+                "Qual é o tipo correto?",
+                range(len(suggestions)),
+                format_func=lambda i: suggestion_options[i]
+            )
+            
+            selected_type = suggestions[selected_idx][0]
+            
+            if st.button("✓ Anonimizar como " + selected_type, type="primary"):
+                token = st.session_state.anonymizer.add_manual_entity(text_to_anonymize, selected_type)
+                st.session_state.manual_selection_result = token
+                st.success(f"✅ Adicionado ao vault como {token}")
+        else:
+            # Manual entry if no suggestions
+            st.warning("Não consegui identificar o tipo. Escolhe manualmente:")
+            
+            entity_types = ["PESSOA", "ORGANIZACAO", "LOCALIZACAO", "EMAIL", "TELEFONE", "NIF", "NIPC", 
+                           "IBAN", "FATURA", "PROCESSO", "CONTRATO", "CARTAO_CIDADAO", "CODIGO_POSTAL"]
+            
+            selected_type = st.selectbox("Tipo de entidade:", entity_types)
+            
+            if st.button("✓ Anonimizar como " + selected_type, type="primary"):
+                token = st.session_state.anonymizer.add_manual_entity(text_to_anonymize, selected_type)
+                st.session_state.manual_selection_result = token
+                st.success(f"✅ Adicionado ao vault como {token}")
+
+
+
     st.sidebar.header("LLM")
     provider = st.sidebar.selectbox("Fornecedor", ["OpenAI", "Ollama"])
 
@@ -695,6 +848,9 @@ def main() -> None:
             st.session_state.deanonymized_response = ""
 
         st.text_area("Texto anonimizado", value=st.session_state.anonymized_text, height=260)
+        
+        st.divider()
+        render_manual_anonymization()
 
         # Debug: show matches
         if st.session_state.matches:
