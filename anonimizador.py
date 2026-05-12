@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import unicodedata
 from dataclasses import dataclass
 from datetime import datetime
@@ -579,6 +580,19 @@ def get_last_modified_time() -> str:
         return "desconhecida"
 
 
+def get_git_version() -> str:
+    try:
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+        return sha
+    except Exception:
+        return "desconhecida"
+
+
 def entity_table(matches: list[EntityMatch]) -> list[dict[str, object]]:
     return [
         {
@@ -626,7 +640,9 @@ def main() -> None:
     st.write(f"Presidio analyzer available: {st.session_state.anonymizer.presidio_analyzer is not None}")
 
     st.title("Anonimizador reversível para LLM")
-    st.caption(f"Última alteração do código: {get_last_modified_time()}")
+    st.caption(
+        f"Última alteração do código: {get_last_modified_time()} | Versão: {get_git_version()}"
+    )
 
     upload_col, text_col = st.columns([0.9, 1.1], gap="large")
     with upload_col:
