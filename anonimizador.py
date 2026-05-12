@@ -373,12 +373,10 @@ class ReversibleAnonymizer:
 
         matches: list[EntityMatch] = []
         for entity_type, pattern, score in patterns:
-            flags = 0 if entity_type == "ORGANIZACAO" else re.IGNORECASE
+            flags = 0 if entity_type in {"ORGANIZACAO", "PESSOA"} else re.IGNORECASE
             for result in re.finditer(pattern, text, flags=flags):
                 value = result.group(0)
                 if entity_type == "CARTAO_CREDITO" and not self._looks_like_card(value):
-                    continue
-                if entity_type == "PESSOA" and any(word in value.lower() for word in ["da", "de", "do", "das", "dos", "e", "em", "para", "com", "por", "como", "a", "o", "os", "as"]):
                     continue
                 matches.append(
                     EntityMatch(
