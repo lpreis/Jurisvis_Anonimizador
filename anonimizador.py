@@ -368,8 +368,20 @@ class ReversibleAnonymizer:
             ),
             ("CODIGO_POSTAL", r"\b\d{4}-\d{3}\b", 0.75),
             ("CARTAO_CREDITO", r"\b(?:\d[ -]*?){13,16}\b", 0.65),
-            ("PESSOA", r"\b(?:Dr\.?\s*|Dra\.?\s*)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+)+\b", 0.8),
+            ("PESSOA", r"\b(?:Dr\.?\s*|Dra\.?\s*|Eng\.?\s*|Prof\.?\s*|Advog\.?\s*|Avog\.?\s*)[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+)+\b", 0.95),
         ]
+
+        # Blacklist of words that should not be matched as PESSOA
+        pessoa_blacklist = {
+            "juízo", "central", "cível", "tribunal", "câmara", "corte", "judicial",
+            "avenida", "rua", "travessa", "praça", "zona", "local", "beco", "largo",
+            "comissão", "ministério", "direcção", "autoridade", "agência", "instituto",
+            "energética", "otimização", "cloud", "software", "serviços", "soluções",
+            "oficina", "loja", "empresa", "fábrica", "indústria", "negócio",
+            "industrial", "nacional", "regional", "internacional", "municipal",
+            "auto", "café", "restaurant", "hotel", "escola", "universidade",
+            "banco", "seguros", "consultoria", "contabilidade", "advocacia",
+        }
 
         matches: list[EntityMatch] = []
         for entity_type, pattern, score in patterns:
@@ -378,6 +390,11 @@ class ReversibleAnonymizer:
                 value = result.group(0)
                 if entity_type == "CARTAO_CREDITO" and not self._looks_like_card(value):
                     continue
+                # Filter PESSOA matches against blacklist
+                if entity_type == "PESSOA":
+                    value_lower = value.lower()
+                    if any(word in value_lower for word in pessoa_blacklist):
+                        continue
                 matches.append(
                     EntityMatch(
                         start=result.start(),
