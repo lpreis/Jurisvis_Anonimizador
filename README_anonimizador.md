@@ -1,15 +1,24 @@
-# Anonimizador reversível para LLM
+# Anonimizador reversivel para textos juridicos
 
-Aplicação Streamlit para:
+Aplicacao Streamlit para preparar textos juridicos antes de os enviar para uma LLM:
 
 - escrever texto ou carregar ficheiros `.txt`, `.docx` e `.pdf`;
-- detetar dados pessoais e substituir por tokens reversíveis;
-- enviar o texto original ou anonimizado para uma LLM;
-- desanonimizar a resposta com base no vault da sessão.
+- detetar dados pessoais e identificadores juridicos;
+- substituir entidades por tokens reversiveis;
+- enviar texto anonimizado para OpenAI ou Ollama;
+- desanonimizar a resposta com base no vault da sessao.
 
-## Instalação recomendada
+## Estrutura
 
-Algumas bibliotecas de NLP podem não suportar Python 3.14. Se a instalação falhar, usa Python 3.11 ou 3.12.
+- `anonimizador.py`: interface Streamlit.
+- `anonymizer_core.py`: deteccao, validacao, vault e reversibilidade.
+- `document_io.py`: extracao de TXT, DOCX e PDF.
+- `llm_client.py`: clientes OpenAI/Ollama e construcao de prompt.
+- `tests/`: testes de regressao da anonimização.
+
+## Instalacao recomendada
+
+Algumas bibliotecas de NLP podem nao suportar Python 3.14. Se a instalacao falhar, usa Python 3.11 ou 3.12.
 
 ```powershell
 py -3.12 -m venv .venv
@@ -18,15 +27,15 @@ python -m pip install -U pip
 pip install -r requirements.txt
 ```
 
-### Modelo spaCy (opcional)
+### Modelo spaCy opcional
 
-Para melhor deteção de entidades, instala o modelo de linguagem português:
+Para melhor deteccao de entidades, instala o modelo portugues:
 
 ```powershell
 python -m spacy download pt_core_news_lg
 ```
 
-**Nota para deploy no Streamlit Share:** O modelo é grande (~568MB) e pode falhar na instalação. A app funciona sem ele, usando deteção baseada em regex.
+A app funciona sem esse modelo, usando regex e validadores locais.
 
 ## Executar
 
@@ -34,11 +43,12 @@ python -m spacy download pt_core_news_lg
 streamlit run anonimizador.py
 ```
 
-## LLMs suportadas
+## Testes
 
-- OpenAI: coloca a chave na barra lateral ou define `OPENAI_API_KEY`.
-- Ollama: usa uma instância local, por exemplo `http://localhost:11434`, e escolhe o modelo.
+```powershell
+python -m unittest
+```
 
-## Notas de segurança
+## Notas de seguranca
 
-O vault atual vive apenas na sessão da app. Para produção, guarda o mapa token -> valor original de forma cifrada, com TTL curto, sem logs de texto original ou prompts completos.
+O vault atual vive apenas na sessao da app. O vault so e mostrado quando a opcao de privacidade correspondente esta ativa. Para producao, guarda o mapa token -> valor original de forma cifrada, com TTL curto, controlo de acesso e sem logs de texto original ou prompts completos.
