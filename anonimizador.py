@@ -613,6 +613,9 @@ def main() -> None:
     initialize_state()
     provider, model, api_key, base_url = render_sidebar()
 
+    # Debug: show if Presidio is available
+    st.write(f"Presidio analyzer available: {st.session_state.anonymizer.presidio_analyzer is not None}")
+
     st.title("Anonimizador reversível para LLM")
 
     upload_col, text_col = st.columns([0.9, 1.1], gap="large")
@@ -651,7 +654,9 @@ def main() -> None:
 
         st.text_area("Texto anonimizado", value=st.session_state.anonymized_text, height=260)
 
+        # Debug: show matches
         if st.session_state.matches:
+            st.write(f"Detected {len(st.session_state.matches)} entities:")
             st.dataframe(entity_table(st.session_state.matches), use_container_width=True, hide_index=True)
         else:
             st.info("Ainda não há entidades detetadas nesta sessão.")
