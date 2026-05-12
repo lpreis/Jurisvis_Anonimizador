@@ -5,10 +5,17 @@ import subprocess
 from datetime import datetime
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from anonymizer_core import ENTITY_TYPES, EntityMatch, ReversibleAnonymizer
 from document_io import extract_text
 from llm_client import build_prompt, call_llm
+
+
+TEXT_SELECTOR = components.declare_component(
+    "text_selector",
+    path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "text_selector_component"),
+)
 
 
 def initialize_state() -> None:
@@ -26,6 +33,8 @@ def initialize_state() -> None:
         st.session_state.matches = []
     if "manual_selection_result" not in st.session_state:
         st.session_state.manual_selection_result = ""
+    if "last_selection_nonce" not in st.session_state:
+        st.session_state.last_selection_nonce = 0
 
 
 def get_last_modified_time() -> str:
@@ -92,9 +101,51 @@ def render_sidebar() -> tuple[str, str, str, str, bool, bool]:
     return provider, model, api_key, base_url, show_vault, show_debug
 
 
+def apply_manual_entity(text_to_anonymize: str, entity_type: str) -> str:
+    anonymizer: ReversibleAnonymizer = st.session_state.anonymizer
+    base_text = st.session_state.anonymized_text or st.session_state.source_text
+    anonymized_text, token = anonymizer.replace_manual_entity(base_text, text_to_anonymize, entity_type)
+    st.session_state.anonymized_text = anonymized_text
+    st.session_state.manual_selection_result = token
+    return token
+
+
+def render_text_selection_anonymization() -> None:
+    st.subheader("Anonimizacao por selecao")
+    st.caption("Seleciona uma passagem no texto abaixo e escolhe o tipo de entidade.")
+
+    if not st.session_state.source_text.strip():
+        st.info("Insere ou extrai texto base para ativar a selecao manual.")
+        return
+
+    selection = TEXT_SELECTOR(
+        text=st.session_state.source_text,
+        entityTypes=ENTITY_TYPES,
+        key="text_selector_component",
+        default=None,
+    )
+
+    if not selection:
+        return
+
+    nonce = int(selection.get("nonce", 0))
+    if nonce <= st.session_state.last_selection_nonce:
+        return
+
+    selected_text = str(selection.get("text", "")).strip()
+    selected_type = str(selection.get("entity_type", "")).strip()
+    if not selected_text or selected_type not in ENTITY_TYPES:
+        return
+
+    st.session_state.last_selection_nonce = nonce
+    token = apply_manual_entity(selected_text, selected_type)
+    st.success(f"Selecao anonimizada como {token}")
+    st.rerun()
+
+
 def render_manual_anonymization() -> None:
     st.subheader("Anonimizacao manual")
-    st.caption("Adiciona uma entidade que nao foi detetada automaticamente.")
+    st.caption("Alternativa para escrever uma entidade manualmente.")
 
     text_to_anonymize = st.text_input(
         "Texto exato a anonimizar",
@@ -117,8 +168,7 @@ def render_manual_anonymization() -> None:
         )
         selected_token = similar_in_vault[selected_idx][0]
         if st.button("Usar este token", type="primary"):
-            st.session_state.source_text = st.session_state.source_text.replace(text_to_anonymize, selected_token)
-            st.session_state.anonymized_text = st.session_state.anonymized_text.replace(
+            st.session_state.anonymized_text = (st.session_state.anonymized_text or st.session_state.source_text).replace(
                 text_to_anonymize,
                 selected_token,
             )
@@ -139,13 +189,7 @@ def render_manual_anonymization() -> None:
         selected_type = st.selectbox("Tipo de entidade", ENTITY_TYPES)
 
     if st.button("Anonimizar manualmente", type="primary"):
-        anonymized_text, token = anonymizer.replace_manual_entity(
-            st.session_state.anonymized_text or st.session_state.source_text,
-            text_to_anonymize,
-            selected_type,
-        )
-        st.session_state.anonymized_text = anonymized_text
-        st.session_state.manual_selection_result = token
+        token = apply_manual_entity(text_to_anonymize, selected_type)
         st.success(f"Adicionado ao vault como {token}")
 
 
@@ -201,6 +245,7 @@ def main() -> None:
             height=260,
             placeholder="Escreve ou cola aqui o texto a analisar.",
         )
+        render_text_selection_anonymization()
 
     actions_col, result_col = st.columns([0.9, 1.1], gap="large")
 

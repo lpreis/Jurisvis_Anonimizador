@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="https://unpkg.com/streamlit-component-lib@1.4.0/dist/index.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Source Sans Pro", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: transparent;
+        color: #1f2937;
+      }
+
+      .selector-shell {
+        position: relative;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: #ffffff;
+        min-height: 180px;
+        max-height: 320px;
+        overflow: auto;
+      }
+
+      .text-surface {
+        padding: 12px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        line-height: 1.5;
+        font-size: 14px;
+        user-select: text;
+      }
+
+      .empty {
+        color: #6b7280;
+      }
+
+      .popup {
+        position: fixed;
+        display: none;
+        z-index: 1000;
+        align-items: center;
+        gap: 6px;
+        padding: 6px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #ffffff;
+        box-shadow: 0 8px 28px rgba(15, 23, 42, 0.18);
+      }
+
+      select,
+      button {
+        height: 30px;
+        border-radius: 5px;
+        border: 1px solid #cbd5e1;
+        font-size: 13px;
+      }
+
+      select {
+        min-width: 190px;
+        background: #ffffff;
+        color: #111827;
+      }
+
+      button {
+        padding: 0 10px;
+        background: #0f172a;
+        color: #ffffff;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #1e293b;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="selector-shell">
+      <div id="textSurface" class="text-surface empty"></div>
+    </div>
+    <div id="popup" class="popup">
+      <select id="entityType"></select>
+      <button id="applyButton" type="button">Aplicar</button>
+    </div>
+
+    <script>
+      const Streamlit = window.Streamlit;
+      const textSurface = document.getElementById("textSurface");
+      const popup = document.getElementById("popup");
+      const entityType = document.getElementById("entityType");
+      const applyButton = document.getElementById("applyButton");
+
+      let args = { text: "", entityTypes: [] };
+      let selectedText = "";
+
+      function escapeText(value) {
+        textSurface.textContent = value || "Sem texto base.";
+        textSurface.classList.toggle("empty", !value);
+      }
+
+      function looksLikeEmail(value) {
+        return /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/.test(value);
+      }
+
+      function looksLikePhone(value) {
+        return /\b(?:\+351\s?)?(?:9[1236]\d\s?\d{3}\s?\d{3}|2\d\s?\d{3}\s?\d{3})\b/.test(value);
+      }
+
+      function looksLikeTaxId(value) {
+        return /\b(?:N\.?\s*I\.?\s*F\.?\s*)?[1235689]\d{2}\s?\d{3}\s?\d{3}\b/i.test(value);
+      }
+
+      function looksLikeIban(value) {
+        return /\bPT50\s?(?:\d{4}\s?){5}\d\b/i.test(value);
+      }
+
+      function looksLikePostalCode(value) {
+        return /\b\d{4}-\d{3}\b/.test(value);
+      }
+
+      function looksLikeCaseNumber(value) {
+        return /\b(?:Processo\s+n\.?\s*(?:o|º)\s*)?\d{1,7}\/\d{2}\.[A-Z0-9]{1,6}(?:-[A-Z0-9]{1,6})?\b/i.test(value);
+      }
+
+      function looksLikeCompany(value) {
+        return /\b(?:Lda\.?|Limitada|S\.?\s*A\.?|SA|Unipessoal\s+Lda\.?)\b/i.test(value);
+      }
+
+      function looksLikeAddress(value) {
+        return /\b(?:Rua|R\.|Avenida|Av\.|Travessa|Tv\.|Praca|Praça|Largo|Estrada|Alameda|Beco|Calcada|Calçada)\b/i.test(value);
+      }
+
+      function looksLikePerson(value) {
+        return /\b(?:Dr\.?|Dra\.?|Eng\.?|Prof\.?|Advog\.?)\s+\S+\s+\S+/i.test(value);
+      }
+
+      function suggestedTypes(value) {
+        const suggestions = [];
+        if (looksLikeEmail(value)) suggestions.push("EMAIL");
+        if (looksLikePhone(value)) suggestions.push("TELEFONE");
+        if (looksLikeTaxId(value)) suggestions.push("NIF");
+        if (looksLikeIban(value)) suggestions.push("IBAN");
+        if (looksLikePostalCode(value)) suggestions.push("CODIGO_POSTAL");
+        if (looksLikeCaseNumber(value)) suggestions.push("PROCESSO");
+        if (looksLikeCompany(value)) suggestions.push("ORGANIZACAO");
+        if (looksLikeAddress(value)) suggestions.push("LOCALIZACAO");
+        if (looksLikePerson(value)) suggestions.push("PESSOA");
+        return [...new Set([...suggestions, ...args.entityTypes])];
+      }
+
+      function fillOptions(value) {
+        entityType.innerHTML = "";
+        for (const optionValue of suggestedTypes(value)) {
+          const option = document.createElement("option");
+          option.value = optionValue;
+          option.textContent = optionValue;
+          entityType.appendChild(option);
+        }
+      }
+
+      function selectionInsideSurface(selection) {
+        if (!selection || selection.rangeCount === 0) return false;
+        const range = selection.getRangeAt(0);
+        return textSurface.contains(range.commonAncestorContainer);
+      }
+
+      function hidePopup() {
+        popup.style.display = "none";
+      }
+
+      function showPopupForSelection() {
+        const selection = window.getSelection();
+        if (!selectionInsideSurface(selection)) {
+          hidePopup();
+          return;
+        }
+
+        selectedText = selection.toString().trim();
+        if (!selectedText) {
+          hidePopup();
+          return;
+        }
+
+        const rect = selection.getRangeAt(0).getBoundingClientRect();
+        fillOptions(selectedText);
+        popup.style.display = "flex";
+        popup.style.left = `${Math.max(8, rect.left)}px`;
+        popup.style.top = `${Math.max(8, rect.top - 42)}px`;
+      }
+
+      function applySelection() {
+        if (!selectedText) return;
+        Streamlit.setComponentValue({
+          text: selectedText,
+          entity_type: entityType.value,
+          nonce: Date.now(),
+        });
+        hidePopup();
+        window.getSelection().removeAllRanges();
+      }
+
+      function onRender(event) {
+        args = event.detail.args || args;
+        escapeText(args.text || "");
+        Streamlit.setFrameHeight(340);
+      }
+
+      document.addEventListener("selectionchange", () => {
+        window.setTimeout(showPopupForSelection, 0);
+      });
+      applyButton.addEventListener("click", applySelection);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") hidePopup();
+      });
+
+      Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, onRender);
+      Streamlit.setComponentReady();
+      Streamlit.setFrameHeight(340);
+    </script>
+  </body>
+</html>

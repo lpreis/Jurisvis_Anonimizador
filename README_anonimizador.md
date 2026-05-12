@@ -5,6 +5,7 @@ Aplicacao Streamlit para preparar textos juridicos antes de os enviar para uma L
 - escrever texto ou carregar ficheiros `.txt`, `.docx` e `.pdf`;
 - detetar dados pessoais e identificadores juridicos;
 - substituir entidades por tokens reversiveis;
+- selecionar texto diretamente no texto base para adicionar entidades manuais com sugestoes;
 - enviar texto anonimizado para OpenAI ou Ollama;
 - desanonimizar a resposta com base no vault da sessao.
 
@@ -14,6 +15,7 @@ Aplicacao Streamlit para preparar textos juridicos antes de os enviar para uma L
 - `anonymizer_core.py`: deteccao, validacao, vault e reversibilidade.
 - `document_io.py`: extracao de TXT, DOCX e PDF.
 - `llm_client.py`: clientes OpenAI/Ollama e construcao de prompt.
+- `text_selector_component/`: componente Streamlit para selecao manual no texto.
 - `tests/`: testes de regressao da anonimização.
 
 ## Instalacao recomendada
