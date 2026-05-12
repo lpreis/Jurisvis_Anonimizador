@@ -366,6 +366,7 @@ class ReversibleAnonymizer:
             ),
             ("CODIGO_POSTAL", r"\b\d{4}-\d{3}\b", 0.75),
             ("CARTAO_CREDITO", r"\b(?:\d[ -]*?){13,16}\b", 0.65),
+            ("PESSOA", r"\b(?:Dr\.?\s*|Dra\.?\s*)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+(?:\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-zà-ÿ]+)+\b", 0.8),
         ]
 
         matches: list[EntityMatch] = []
