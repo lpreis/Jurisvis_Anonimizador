@@ -120,7 +120,7 @@ class ReversibleAnonymizer:
                 presidio_results = self.presidio_analyzer.analyze(
                     text=text,
                     language=language,
-                    score_threshold=0.4,
+                    score_threshold=0.2,
                 )
                 for result in presidio_results:
                     value = text[result.start : result.end]
@@ -375,6 +375,8 @@ class ReversibleAnonymizer:
             for result in re.finditer(pattern, text, flags=flags):
                 value = result.group(0)
                 if entity_type == "CARTAO_CREDITO" and not self._looks_like_card(value):
+                    continue
+                if entity_type == "PESSOA" and any(word in value.lower() for word in ["da", "de", "do", "das", "dos", "e", "em", "para", "com", "por", "como", "a", "o", "os", "as"]):
                     continue
                 matches.append(
                     EntityMatch(
